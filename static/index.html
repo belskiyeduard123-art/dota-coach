@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dota Coach — разбор твоей игры</title>
+<style>
+  :root{
+    --bg:#0a0d12; --panel:#13181f; --panel2:#1a212b;
+    --line:#262f3b; --txt:#e6edf3; --dim:#8794a6;
+    --acc:#e23636; --acc2:#ff5a4d; --gold:#e0b04a; --ok:#3fb950; --bad:#e25555;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:"Segoe UI",system-ui,sans-serif;
+    min-height:100vh;padding:0 16px 48px;line-height:1.55;position:relative;overflow-x:hidden}
+  body::before{content:"";position:fixed;inset:0;z-index:-2;
+    background:radial-gradient(900px 500px at 15% -5%,rgba(226,54,54,.18),transparent 55%),
+      radial-gradient(900px 600px at 90% 10%,rgba(60,90,150,.16),transparent 55%),
+      radial-gradient(700px 700px at 50% 110%,rgba(224,176,74,.08),transparent 60%)}
+  body::after{content:"";position:fixed;inset:0;z-index:-1;opacity:.035;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cpath d='M0 40h80M40 0v80' stroke='%23fff' stroke-width='.5'/%3E%3C/svg%3E")}
+  .wrap{max-width:780px;margin:0 auto;padding-top:44px}
+
+  header{text-align:center;margin-bottom:30px;animation:fadeUp .6s ease}
+  .logo{font-size:12px;letter-spacing:6px;color:var(--acc);font-weight:800;text-transform:uppercase}
+  h1{font-size:clamp(26px,5vw,38px);margin:8px 0 10px;font-weight:900;letter-spacing:-1px;
+     background:linear-gradient(180deg,#fff,#b8c4d4);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--dim);font-size:15px;max-width:480px;margin:0 auto}
+
+  .card{background:linear-gradient(180deg,var(--panel),#10151c);border:1px solid var(--line);
+    border-radius:16px;padding:24px;margin-bottom:18px;box-shadow:0 20px 60px -30px rgba(0,0,0,.8)}
+
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  input{flex:1;min-width:220px;background:var(--panel2);border:1px solid var(--line);
+    color:var(--txt);padding:15px 18px;border-radius:11px;font-size:15px;outline:none;transition:.15s}
+  input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(226,54,54,.12)}
+  button{background:linear-gradient(180deg,var(--acc2),var(--acc));color:#fff;border:0;
+    padding:15px 28px;border-radius:11px;font-size:15px;font-weight:800;cursor:pointer;
+    transition:transform .08s,filter .15s;box-shadow:0 8px 24px -8px rgba(226,54,54,.6)}
+  button:hover{filter:brightness(1.1)}
+  button:active{transform:translateY(1px)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .hint{color:var(--dim);font-size:13px;margin-top:12px}
+  .hint code{background:var(--panel2);padding:2px 6px;border-radius:5px;color:var(--gold)}
+
+  details{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+  summary{cursor:pointer;color:var(--gold);font-size:14px;font-weight:600;list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"▸ ";color:var(--gold)}
+  details[open] summary::before{content:"▾ "}
+  details ol{margin:10px 0 0 18px;color:var(--dim);font-size:14px}
+  details li{margin-bottom:6px}
+
+  /* живая загрузка */
+  .loading{display:none;text-align:center;color:var(--dim);padding:30px}
+  .loading.show{display:block}
+  .spinner{display:inline-block;width:24px;height:24px;border:3px solid var(--line);
+    border-top-color:var(--acc);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:12px}
+  .lstep{margin-top:10px;font-size:13px;color:var(--dim);min-height:18px;transition:.3s}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+  .result{display:none}
+  .result.show{display:block}
+  .result.show > *{animation:fadeUp .5s ease backwards}
+  .result.show > *:nth-child(1){animation-delay:.05s}
+  .result.show > *:nth-child(2){animation-delay:.15s}
+  .result.show > *:nth-child(3){animation-delay:.25s}
+  .result.show > *:nth-child(4){animation-delay:.35s}
+  .result.show > *:nth-child(5){animation-delay:.45s}
+
+  .phead{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:12px}
+  .pleft{display:flex;align-items:center;gap:12px}
+  .rankimg{width:46px;height:46px;object-fit:contain}
+  .pname{font-size:22px;font-weight:900}
+  .pmeta{font-size:12px;color:var(--dim)}
+  .pmeta a{color:var(--gold);text-decoration:none}
+  .pmeta a:hover{text-decoration:underline}
+  .pill{background:linear-gradient(180deg,#2a2113,#1a160d);border:1px solid #4a3c1a;color:var(--gold);
+    padding:5px 14px;border-radius:20px;font-size:13px;font-weight:700;white-space:nowrap}
+
+  /* заметки-плашки */
+  .note{border-radius:10px;padding:11px 14px;font-size:13px;margin-bottom:10px}
+  .note.warn{background:#241f12;border:1px solid #5a4f2a;color:#f0d98a}
+  .note.info{background:#13202b;border:1px solid #2a455a;color:#9cc7e0}
+
+  .vlabel{color:var(--acc2)}
+  .coach{white-space:pre-wrap;font-size:15px;line-height:1.75}
+  .coach b{color:var(--acc2);display:inline-block;margin-top:14px;font-size:12px;letter-spacing:1px;text-transform:uppercase}
+
+  .metrics{display:flex;flex-direction:column;gap:14px;margin-top:6px}
+  .metric .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .metric .ml{color:var(--dim);font-size:13px}
+  .metric .mv{font-size:18px;font-weight:800}
+  .metric .mnote{font-size:12px;color:var(--gold);margin-left:8px;font-weight:600}
+  .bar{height:8px;background:var(--panel2);border-radius:6px;overflow:hidden}
+  .bar > i{display:block;height:100%;border-radius:6px;width:0;transition:width 1s cubic-bezier(.2,.8,.2,1)}
+  .bar.hi > i{background:linear-gradient(90deg,var(--gold),var(--ok))}
+  .bar.lo > i{background:linear-gradient(90deg,#5a6470,var(--acc))}
+
+  /* график винрейта */
+  .trend{display:flex;align-items:flex-end;gap:5px;height:60px;margin-top:6px}
+  .tbar{flex:1;border-radius:3px 3px 0 0;min-height:8px;opacity:0;transform:scaleY(.3);transform-origin:bottom;
+    transition:opacity .4s,transform .5s cubic-bezier(.2,.8,.2,1)}
+  .tbar.win{background:linear-gradient(180deg,var(--ok),#2a7a3a)}
+  .tbar.loss{background:linear-gradient(180deg,#4a525e,#363c45)}
+  .tbar.on{opacity:1;transform:scaleY(1)}
+  .tlabel{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-top:6px}
+
+  .heroes{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:6px}
+  .hero{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:10px;padding:8px 10px}
+  .hero img{width:42px;height:24px;object-fit:cover;border-radius:4px;background:#0a0d12}
+  .hero .hn{font-size:13px;font-weight:700;line-height:1.2}
+  .hero .hw{font-size:12px;color:var(--dim)}
+  .hero .hw.win{color:var(--ok)}
+
+  .sechead{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);margin:0 0 12px;font-weight:700}
+  .sharerow{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+  .sharebtn{background:var(--panel2);border:1px solid var(--line);color:var(--txt);font-weight:700;
+    padding:11px 18px;border-radius:10px;font-size:14px;cursor:pointer;box-shadow:none}
+  .sharebtn:hover{border-color:var(--gold);filter:none}
+  .sharebtn.copied{border-color:var(--ok);color:var(--ok)}
+
+  .err{display:none;background:#241316;border:1px solid #5a2a2a;color:#ffb4b4;
+    border-radius:12px;padding:16px;font-size:14px;margin-bottom:18px}
+  .err.warn{background:#241f12;border-color:#5a4f2a;color:#f0d98a}
+  footer{text-align:center;color:#566;font-size:12px;margin-top:28px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">Dota Coach</div>
+    <h1>Разбор твоей игры за минуту</h1>
+    <div class="sub">Вставь свой Steam ID или ссылку на профиль — получишь честный разбор от тренера, а не просто цифры.</div>
+  </header>
+
+  <div class="card">
+    <div class="row">
+      <input id="sid" placeholder="Steam ID или ссылка на dotabuff/opendota" />
+      <button id="go" onclick="analyze()">Разобрать</button>
+    </div>
+    <div class="hint">Например: <code>86745912</code> или <code>dotabuff.com/players/86745912</code></div>
+    <details>
+      <summary>Не видит твои матчи? Включи доступ (1 минута)</summary>
+      <ol>
+        <li>Открой Dota 2 → Настройки (шестерёнка) → вкладка «Аккаунт».</li>
+        <li>Включи «Открыть доступ к данным публичных матчей» (Expose Public Match Data).</li>
+        <li>Сыграй один матч и подожди пару минут.</li>
+        <li>Вернись сюда и нажми «Разобрать» снова.</li>
+      </ol>
+    </details>
+  </div>
+
+  <div class="err" id="err"></div>
+
+  <div class="loading" id="loading">
+    <span class="spinner"></span>Анализирую…
+    <div class="lstep" id="lstep">Подключаюсь к OpenDota…</div>
+  </div>
+
+  <div class="result" id="result">
+    <div class="card">
+      <div class="phead">
+        <div class="pleft">
+          <img class="rankimg" id="rankimg" alt="" style="display:none">
+          <div>
+            <div class="pname" id="pname"></div>
+            <div class="pmeta"><a id="plink" href="#" target="_blank" rel="noopener">Профиль на OpenDota ↗</a></div>
+          </div>
+        </div>
+        <div class="pill" id="prank"></div>
+      </div>
+      <div id="notes"></div>
+      <div class="coach" id="coach"></div>
+    </div>
+
+    <div class="card">
+      <div class="sechead">Ключевые показатели</div>
+      <div class="metrics" id="metrics"></div>
+    </div>
+
+    <div class="card" id="trendCard">
+      <div class="sechead">Последние матчи (победы / поражения)</div>
+      <div class="trend" id="trend"></div>
+      <div class="tlabel"><span>раньше</span><span>сейчас</span></div>
+    </div>
+
+    <div class="card" id="heroCard">
+      <div class="sechead">Твои герои</div>
+      <div class="heroes" id="heroes"></div>
+    </div>
+
+    <div class="card">
+      <div class="sechead">Поделиться разбором</div>
+      <div class="sharerow">
+        <button class="sharebtn" id="copyBtn" onclick="copyLink()">🔗 Скопировать ссылку</button>
+        <button class="sharebtn" onclick="shareText()">📋 Скопировать разбор</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>Данные: OpenDota · Разбор: YandexGPT · Прототип</footer>
+</div>
+
+<script>
+let lastData=null, lastSid='';
+const STEPS=['Подключаюсь к OpenDota…','Тяну последние матчи…','Считаю метрики и бенчмарки…','Ищу слабые места…','Готовлю разбор от тренера…'];
+let stepTimer=null;
+
+async function analyze(){
+  const sid=document.getElementById('sid').value.trim();
+  const err=document.getElementById('err'),loading=document.getElementById('loading');
+  const result=document.getElementById('result'),btn=document.getElementById('go');
+  err.style.display='none'; result.classList.remove('show');
+  if(!sid){showErr('Введи Steam ID или ссылку на профиль.');return;}
+  lastSid=sid;
+  loading.classList.add('show'); btn.disabled=true;
+  // живая смена шагов загрузки
+  let i=0; const ls=document.getElementById('lstep'); ls.textContent=STEPS[0];
+  stepTimer=setInterval(()=>{i=Math.min(i+1,STEPS.length-1);ls.textContent=STEPS[i];},2500);
+  try{
+    const resp=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({steam_id:sid})});
+    const data=await resp.json();
+    clearInterval(stepTimer); loading.classList.remove('show'); btn.disabled=false;
+    if(!resp.ok){ data.error==='no_matches'?showErr(data.message,true):showErr(data.error||'Что-то пошло не так.'); return; }
+    lastData=data; render(data);
+  }catch(e){clearInterval(stepTimer);loading.classList.remove('show');btn.disabled=false;showErr('Ошибка сети: '+e.message);}
+}
+function showErr(msg,warn){const err=document.getElementById('err');err.textContent=msg;err.className='err'+(warn?' warn':'');err.style.display='block';}
+
+function render(d){
+  document.getElementById('pname').textContent=d.name;
+  document.getElementById('prank').textContent=d.rank;
+  // ссылка на профиль
+  const pl=document.getElementById('plink'); pl.href=d.profile_url||'#';
+  // иконка ранга
+  const ri=document.getElementById('rankimg');
+  if(d.rank_icon){ri.src=d.rank_icon;ri.style.display='block';ri.onerror=()=>{ri.style.display='none';};}
+  else{ri.style.display='none';}
+
+  // заметки-плашки (края)
+  const notesEl=document.getElementById('notes');
+  notesEl.innerHTML=(d.notes||[]).map(n=>`<div class="note ${n.type}">${n.text}</div>`).join('');
+
+  // разбор
+  let coach=(d.coaching||'').replace(/(ГЛАВНЫЙ ВЫВОД:|ПОЧЕМУ:|ПЛАН НА НЕДЕЛЮ:)/g,'<b>$1</b>');
+  document.getElementById('coach').innerHTML=coach;
+
+  // метрики
+  const mEl=document.getElementById('metrics');
+  mEl.innerHTML=(d.metrics||[]).map(m=>{
+    const pct=(m.pct==null)?null:Math.max(3,Math.min(100,m.pct));
+    const cls=m.good_high?'hi':'lo';
+    const bar=(pct==null)?'':`<div class="bar ${cls}"><i data-w="${pct}"></i></div>`;
+    const note=m.note?`<span class="mnote">${m.note}</span>`:'';
+    return `<div class="metric"><div class="top"><span class="ml">${m.label}</span>
+      <span class="mv">${m.value}${note}</span></div>${bar}</div>`;
+  }).join('');
+  requestAnimationFrame(()=>{setTimeout(()=>{document.querySelectorAll('.bar > i').forEach(i=>{i.style.width=i.dataset.w+'%';});},120);});
+
+  // график винрейта
+  const series=d.series||[];
+  const tEl=document.getElementById('trend');
+  if(series.length){
+    document.getElementById('trendCard').style.display='block';
+    tEl.innerHTML=series.map(s=>`<div class="tbar ${s.win?'win':'loss'}"></div>`).join('');
+    const bars=tEl.querySelectorAll('.tbar');
+    bars.forEach((b,idx)=>setTimeout(()=>b.classList.add('on'),200+idx*40));
+  }else{document.getElementById('trendCard').style.display='none';}
+
+  // герои
+  const heroes=d.top_heroes||[];
+  const hCard=document.getElementById('heroCard');
+  if(heroes.length){
+    hCard.style.display='block';
+    document.getElementById('heroes').innerHTML=heroes.map(h=>{
+      const wr=h.winrate, wcls=wr>=60?'win':'';
+      const img=h.icon||h.img||'';
+      const imgTag=img?`<img src="${img}" alt="" onerror="this.style.display='none'">`:'';
+      return `<div class="hero">${imgTag}<div><div class="hn">${h.name||('Hero '+h.hero_id)}</div>
+        <div class="hw ${wcls}">${h.games} игр · ${wr}% побед</div></div></div>`;
+    }).join('');
+  }else{hCard.style.display='none';}
+
+  result.classList.add('show');
+}
+
+function copyLink(){
+  const url=location.origin+'/?id='+encodeURIComponent(lastSid);
+  navigator.clipboard.writeText(url).then(()=>{
+    const b=document.getElementById('copyBtn');b.classList.add('copied');b.textContent='✓ Скопировано';
+    setTimeout(()=>{b.classList.remove('copied');b.textContent='🔗 Скопировать ссылку';},2000);
+  });
+}
+function shareText(){
+  if(!lastData)return;
+  const t=`Разбор ${lastData.name} (${lastData.rank}) от Dota Coach:\n\n${lastData.coaching}`;
+  navigator.clipboard.writeText(t);
+}
+
+// автозапуск по ссылке вида /?id=123
+const params=new URLSearchParams(location.search);
+if(params.get('id')){document.getElementById('sid').value=params.get('id');analyze();}
+document.getElementById('sid').addEventListener('keydown',e=>{if(e.key==='Enter')analyze();});
+</script>
+</body>
+</html>
