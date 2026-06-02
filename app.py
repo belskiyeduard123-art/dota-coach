@@ -61,7 +61,7 @@ YANDEX_API_KEY = os.environ.get("YANDEX_API_KEY")
 YANDEX_FOLDER_ID = os.environ.get("YANDEX_FOLDER_ID")
 YANDEX_LLM_URL = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
 
-MATCH_LIMIT = 20
+MATCH_LIMIT = 12
 CORE_LANE_ROLES = {1, 2}
 LANE_ROLE_NAMES = {1: "safelane", 2: "mid", 3: "offlane", 4: "jungle", 0: "неизв."}
 
@@ -110,9 +110,9 @@ def _params(extra=None):
 
 
 def od_get(path, **extra):
-    resp = requests.get(f"{OPENDOTA_BASE}{path}", params=_params(extra), timeout=30)
+    resp = requests.get(f"{OPENDOTA_BASE}{path}", params=_params(extra), timeout=20)
     if not OPENDOTA_API_KEY:
-        time.sleep(1.05)
+        time.sleep(0.4)  # бережём лимит ~60/мин, но быстрее чем раньше
     resp.raise_for_status()
     return resp.json()
 
