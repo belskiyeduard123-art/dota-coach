@@ -423,6 +423,16 @@ def analyze():
     try:
         player = od_get(f"/players/{account_id}")
     except Exception as e:
+        msg = str(e)
+        # 404 почти всегда = профиль закрыт или не проиндексирован OpenDota
+        if "404" in msg:
+            return jsonify({
+                "error": "no_matches",
+                "message": ("Не нашёл этот профиль в OpenDota. Чаще всего причина — "
+                            "в Dota 2 выключена настройка «Открыть доступ к данным "
+                            "публичных матчей» (Expose Public Match Data). Включи её, "
+                            "сыграй матч и попробуй снова. Либо проверь, что ID верный.")
+            }), 404
         return jsonify({"error": f"Не удалось получить профиль: {e}"}), 502
     profile = player.get("profile") or {}
     name = profile.get("personaname", "Игрок")
