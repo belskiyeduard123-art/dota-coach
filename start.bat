@@ -1,32 +1,28 @@
 @echo off
-chcp 65001 >nul
-title Dota Coach - сервер
+title Dota Coach - server
 echo ============================================
-echo   DOTA COACH - запуск сервера
+echo   DOTA COACH - starting server
 echo ============================================
 echo.
 
-REM Проверяем, что есть .env с ключами
 if not exist ".env" (
-  echo [ВНИМАНИЕ] Файл .env не найден!
+  echo [WARNING] File .env not found!
   echo.
-  echo Создай файл .env рядом с этим запускатором:
-  echo   1. Скопируй файл .env.example
-  echo   2. Переименуй копию в .env
-  echo   3. Впиши свой ключ YandexGPT
+  echo Create a .env file next to this launcher:
+  echo   1. Copy the file .env.example
+  echo   2. Rename the copy to .env
+  echo   3. Put your YandexGPT key inside
   echo.
   pause
   exit /b
 )
 
-echo Запускаю сервер... браузер откроется автоматически через 3 секунды.
-echo Чтобы остановить сервер - закрой это окно или нажми Ctrl+C.
+echo Starting server... browser opens in 3 seconds.
+echo To stop the server - close this window or press Ctrl+C.
 echo.
 
-REM Открываем браузер с задержкой, пока сервер поднимается
 start "" /b cmd /c "timeout /t 3 >nul & start http://127.0.0.1:5000"
 
-REM Запускаем сервер (ключи подхватятся из .env автоматически)
 python app.py
 
 pause

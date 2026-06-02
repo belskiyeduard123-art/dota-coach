@@ -119,19 +119,46 @@ def od_get(path, **extra):
 
 def parse_account_id(raw):
     """
-    Принимает Steam ID числом ИЛИ ссылку на профиль Dotabuff/OpenDota.
+    Принимает разные форматы и возвращает account_id (Steam32):
+      - account_id числом (123456789)
+      - SteamID64 (76561198xxxxxxxxx) -> конвертирует вычитанием константы
+      - ссылку на профиль Dotabuff/OpenDota
+      - ссылку steamcommunity с /profiles/76561198... (SteamID64)
     Возвращает строку account_id или None.
     """
     raw = raw.strip()
-    if raw.isdigit():
-        return raw
-    # ищем число в URL вида dotabuff.com/players/123 или opendota.com/players/123
+    STEAM64_BASE = 76561197960265728
+
+    # кастомная ссылка steamcommunity /id/<ник> — числового ID в ней нет
+    if re.search(r"/id/[^/\s]+", raw):
+        return "VANITY"  # сигнал для эндпоинта: показать подсказку
+
+    # ссылка steamcommunity /profiles/<steamid64>
+    m = re.search(r"/profiles/(\d{17})", raw)
+    if m:
+        return str(int(m.group(1)) - STEAM64_BASE)
+
+    # ссылка dotabuff/opendota /players/<account_id>
     m = re.search(r"/players/(\d+)", raw)
     if m:
         return m.group(1)
-    # просто число где-то в строке
+
+    # голое число
+    if raw.isdigit():
+        n = int(raw)
+        # SteamID64 — это большое число, начинающееся на 7656119...
+        if raw.startswith("7656119") and len(raw) == 17:
+            return str(n - STEAM64_BASE)
+        return raw
+
+    # число где-то в строке
     m = re.search(r"(\d{5,})", raw)
-    return m.group(1) if m else None
+    if m:
+        val = m.group(1)
+        if val.startswith("7656119") and len(val) == 17:
+            return str(int(val) - STEAM64_BASE)
+        return val
+    return None
 
 
 def rank_tier_to_name(rank_tier):
@@ -383,6 +410,12 @@ def analyze():
     data = request.get_json(force=True, silent=True) or {}
     raw = str(data.get("steam_id", ""))
     account_id = parse_account_id(raw)
+    if account_id == "VANITY":
+        return jsonify({"error": (
+            "Это ссылка с ником (steamcommunity.com/id/...). Из неё нельзя "
+            "получить ID напрямую. Открой свой профиль в Dota 2 на сайте "
+            "opendota.com или dotabuff.com и вставь ссылку оттуда — либо введи "
+            "числовой Steam ID. Подсказку, как его найти, ищи в профиле Steam.")}), 400
     if not account_id:
         return jsonify({"error": "Не распознал Steam ID. Введи число или ссылку на профиль."}), 400
 
